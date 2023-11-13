@@ -1,7 +1,7 @@
 use crate::KvError;
 use std::{
     collections::HashMap,
-    fs::{File, OpenOptions, rename},
+    fs::{rename, File, OpenOptions},
     io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write},
 };
 
@@ -119,7 +119,7 @@ impl DataStore {
         match self.read(&key) {
             Ok(entry) => return Ok(entry.value),
             Err(KvError::KeyNotFound(key)) => Err(KvError::KeyNotFound(key)),
-            Err(e) => return Err(e)
+            Err(e) => return Err(e),
         }
     }
 
@@ -253,7 +253,7 @@ impl DataStore {
                 }
                 Err(e) => return Err(e),
             }
-        };
+        }
         Ok((new_hashmap, uncompacted))
     }
 
@@ -267,19 +267,21 @@ impl DataStore {
         );
         let mut new_postion = 0;
         let mut offset = 0;
+        let mut new_hashmap = HashMap::new();
         loop {
             match self.read_with_offset(offset) {
                 Ok(entry) => {
                     let size = entry.size() as u64;
                     if let Some(pos) = self.index.get(&entry.key) {
                         if entry.meta.command == Command::Add && *pos == offset {
+                            new_hashmap.insert(entry.key.clone(), new_postion);
                             let buf = entry.encode()?;
                             new_file_writer.write(&buf)?;
                             new_postion += size;
                         }
                     }
                     offset += size;
-                },
+                }
                 Err(KvError::EOF) => break,
                 Err(e) => return Err(e),
             }
@@ -290,6 +292,7 @@ impl DataStore {
         self.file_reader = BufReader::new(File::open(&self.path)?);
         self.position = new_postion;
         self.uncompacted = 0;
+        self.index = new_hashmap;
         Ok(())
     }
 }
