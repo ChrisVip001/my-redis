@@ -16,6 +16,8 @@ pub enum UserError {
     #[error("The number of users exceeds the limit")]
     UserLimit,
     #[error("{0}")]
+    RegexError(#[from] regex::Error),
+    #[error("{0}")]
     SerdeJsonError(#[from] serde_json::Error),
     #[error("{0}")]
     Base64Error(#[from] base64::DecodeError),
@@ -27,5 +29,9 @@ pub enum UserError {
     WrongPassWord,
     #[error("Username '{0}' exists")]
     UserNameExists(String),
+    // #[error("{0}")]
+    // SystemTimeError(#[from] std::time::SystemTimeError),
+    // #[error("{0}")]
+    // TryFromIntError(#[from] std::num::TryFromIntError),
 }
 pub type Result<T> = std::result::Result<T, UserError>;

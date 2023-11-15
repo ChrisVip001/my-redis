@@ -1,25 +1,21 @@
-use std::{
-    fs::{
-        File,
-        self
-    },
-    path::Path,
-    str::from_utf8,
-    io::Write
-};
 use base64::{engine::general_purpose, Engine};
+use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use lazy_static::lazy_static;
-use toml::from_str;
+use serde_json::{from_str, to_string};
+use std::{
+    fs::{self, File},
+    io::{Read, Write},
+    path::Path,
+    str::from_utf8,
+};
 
-use super::user_error::{UserError, Result};
+use super::user_error::{Result, UserError};
 
 lazy_static! {
     static ref USER_PATH: String = Config::get_config().path;
     static ref USER_MAX: u16 = Config::get_config().user_max;
 }
-
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct User {
@@ -46,10 +42,12 @@ impl User {
             },
             _ => return Err(UserError::UnknownLevel(level.to_string())),
         };
+
         let config_path = USER_PATH.clone();
         let config_max = *USER_MAX;
+
         let original = fs::read_to_string(&config_path)?;
-        let mut data = from_str(&original)?;
+        let mut data: Vec<User> = from_str(&original)?;
         if data.len() > config_max.into() && config_max != 0 {
             return Err(UserError::UserLimit);
         }
@@ -59,7 +57,7 @@ impl User {
         }
         user.encode();
         data.push(user);
-        let json = serde_json::to_string(&data)?;
+        let json = to_string(&data)?;
         let mut file = File::create(&config_path)?;
         write!(file, "{}", json)?;
         Ok(())
@@ -103,6 +101,7 @@ impl User {
     // }
 }
 
+#[derive(Serialize, Deserialize)]
 struct Config {
     path: String,
     user_max: u16,
@@ -115,15 +114,20 @@ impl Config {
             user_max: 50,
         }
     }
-    // fn get_config() -> Self {
-    //     let mut file = match File::open("config/user.toml") {
-    //         Ok(f) => f,
-    //         Err(_) => return Self::default(),
-    //     };
-    //     let mut c = String::new();
-    //     file.read_to_string(&mut c)?;
-    //     let config = toml::from_str(c.as_str())?;
-    //     Ok(config)
-    // }
-
+    fn get_config() -> Self {
+        let mut file = match File::open("config/users.toml") {
+            Ok(f) => f,
+            Err(_) => return Self::default(),
+        };
+        let mut c = String::new();
+        match file.read_to_string(&mut c) {
+            Ok(_) => (),
+            Err(_) => return Self::default(),
+        };
+        let config: Config = match toml::from_str(c.as_str()) {
+            Ok(c) => c,
+            Err(_) => return Self::default(),
+        };
+        config
+    }
 }
