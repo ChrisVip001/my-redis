@@ -1,11 +1,11 @@
-use crate::KvError;
+use crate::store::kv_error::KvError;
 use std::{
     collections::HashMap,
     fs::{rename, File, OpenOptions},
     io::{BufReader, BufWriter, Read, Seek, SeekFrom, Write},
 };
 
-use super::error::Result;
+use super::kv_error::Result;
 use bincode;
 use serde::{Deserialize, Serialize};
 
