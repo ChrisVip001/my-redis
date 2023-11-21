@@ -96,9 +96,21 @@ impl User {
         Ok(())
     }
 
-    // pub fn login(name: String, password: String) -> Result<Self> {
-    //     let config_path = USER_PATH
-    // }
+    pub fn login(name: String, password: String) -> Result<Self> {
+        let config_path = USER_PATH.clone();
+        let str_data = fs::read_to_string(&config_path)?;
+        let data = serde_json::from_str(&str_data)?;
+        let user = match Self::search(&data, name) {
+            Ok(user) => user,
+            Err(e) => return Err(e),
+        };
+        if password == user.password {
+            return Ok(user);
+        } else {
+            return Err(UserError::WrongPassWord);
+        }
+    }
+    
 }
 
 #[derive(Serialize, Deserialize)]

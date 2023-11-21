@@ -9,7 +9,7 @@ use super::kv_error::Result;
 use bincode;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, PartialEq)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
 pub enum Value {
     Null,
     Bool(bool),
