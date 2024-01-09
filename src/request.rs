@@ -63,8 +63,11 @@ pub enum OperateRequest {
         password: String,
         level: String,
     },
-    Open {
-        path: String,
+    DeleteUser {
+        name: String,
+    },
+    GetType {
+        key: String,
     },
     Compact,
     Quit,
@@ -77,4 +80,5 @@ pub enum OperateResult {
     PermissionDenied,
     KeyNotFound,
     Failure,
+    Type(String)
 }

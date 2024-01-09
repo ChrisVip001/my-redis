@@ -2,7 +2,6 @@ use base64::{engine::general_purpose, Engine};
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use serde_json::{from_str, to_string};
 use std::{
     fs::{self, File},
     io::{Read, Write},
@@ -21,43 +20,42 @@ lazy_static! {
 pub struct User {
     name: String,
     password: String,
-    level: String,
+    pub level: String,
 }
 
 impl User {
-    pub fn register(name: String, password: String, level: &str) -> Result<()> {
+    pub fn register(name: String, password: String, level: String) -> Result<()> {
         let password_regex = Regex::new(r"^[a-zA-Z0-9_-]{4,16}$")?;
         if !password_regex.is_match(&password) {
-            return Err(UserError::PassWordFormatError(password.to_string()));
+            return Err(UserError::PassWordFormatError(password));
         }
         let name_len = name.chars().count();
         if name_len < 2 || name_len > 20 {
             return Err(UserError::NameLengthError(name_len));
         }
-        let mut user = match level {
+        let mut user = match level.as_str() {
             "0" | "1" | "2" | "3" => User {
-                name: name.to_string(),
-                password: password.to_string(),
-                level: level.to_string(),
+                name: name,
+                password: password,
+                level: level,
             },
-            _ => return Err(UserError::UnknownLevel(level.to_string())),
+            _ => return Err(UserError::UnknownLevel(level)),
         };
 
         let config_path = USER_PATH.clone();
         let config_max = *USER_MAX;
 
         let original = fs::read_to_string(&config_path)?;
-        let mut data: Vec<User> = from_str(&original)?;
+        let mut data: Vec<User> = serde_json::from_str(&original)?;
         if data.len() > config_max.into() && config_max != 0 {
             return Err(UserError::UserLimit);
         }
-
         if let Ok(_) = Self::search(&data, user.name.clone()) {
             return Err(UserError::UserNameExists(user.name));
         }
         user.encode();
         data.push(user);
-        let json = to_string(&data)?;
+        let json = serde_json::to_string(&data)?;
         let mut file = File::create(&config_path)?;
         write!(file, "{}", json)?;
         Ok(())
@@ -110,17 +108,34 @@ impl User {
             return Err(UserError::WrongPassWord);
         }
     }
-    
+
+    pub fn delete( name: String ) -> Result<()> {
+        let config_path = USER_PATH.clone();
+        let str_data = fs::read_to_string(&config_path)?;
+        let mut data: Vec<User> = serde_json::from_str(&str_data)?;
+        for (i, user) in data.iter().enumerate() {
+            if user.name == name {
+                data.remove(i);
+                
+                let json = serde_json::to_string(&data)?;
+                let mut file = File::create(&config_path)?;
+                write!(file, "{}", json)?;
+
+                return Ok(())
+            }
+        }
+        Err(UserError::UserNotFound(name))
+    }
 }
 
 #[derive(Serialize, Deserialize)]
-struct Config {
+pub struct Config {
     path: String,
     user_max: u16,
 }
 
 impl Config {
-    fn default() -> Self {
+    pub fn default() -> Self {
         Config {
             path: "user.json".to_string(),
             user_max: 50,

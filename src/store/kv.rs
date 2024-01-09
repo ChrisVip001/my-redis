@@ -1,4 +1,5 @@
 use crate::store::kv_error::KvError;
+use core::fmt;
 use std::{
     collections::HashMap,
     fs::{rename, File, OpenOptions},
@@ -18,7 +19,8 @@ pub enum Value {
     Float32(f32),
     Float64(f64),
     String(String),
-    Char(Vec<char>),
+    Char(char),
+    Array(Box<Vec<Value>>),
 }
 
 #[derive(Serialize, Deserialize, PartialEq)]
@@ -123,6 +125,35 @@ impl DataStore {
         }
     }
 
+    pub fn get_all_value(&mut self) -> Result<Vec<Value>> {
+        let mut data: Vec<Value> = Vec::new();
+        let mut offset_vec: Vec<u64> = Vec::new();
+        for (_, offset) in &self.index {
+            offset_vec.push(*offset);
+        }
+        for offset in offset_vec {
+            let value = match self.read_with_offset(offset.clone()) {
+                Ok(entry) => entry.value,
+                Err(e) => return Err(e),
+            };
+            data.push(value);
+        }
+        return Ok(data);
+    }
+
+    pub fn get_all_entry(&mut self) -> Result<Vec<Entry>> {
+        let mut data: Vec<Entry> = Vec::new();
+        let mut offset_vec: Vec<u64> = Vec::new();
+        for (_, offset) in &self.index {
+            offset_vec.push(*offset);
+        }
+        for offset in offset_vec {
+            let entry = self.read_with_offset(offset.clone())?;
+            data.push(entry);
+        }
+        return Ok(data);
+    }
+
     pub fn add(&mut self, key: String, value: Value) -> Result<()> {
         let value_size = bincode::serialize(&value)?.len();
         let entry = Entry::add(key.clone(), value, value_size);
@@ -150,11 +181,11 @@ impl DataStore {
         Err(KvError::KeyNotFound(key))
     }
 
-    pub fn open(path: String) -> Result<DataStore> {
-        let file_writer = BufWriter::new(OpenOptions::new().write(true).create(true).open(&path)?);
-        let file_reader = BufReader::new(File::open(&path)?);
+    pub fn open(path: &str) -> Result<DataStore> {
+        let file_writer = BufWriter::new(OpenOptions::new().write(true).create(true).open(path)?);
+        let file_reader = BufReader::new(File::open(path)?);
         let mut result = DataStore {
-            path: path,
+            path: path.to_string(),
             file_reader,
             file_writer,
             index: HashMap::new(),
@@ -223,6 +254,20 @@ impl DataStore {
         self.position += size;
         self.file_writer.write(&buf)?;
         Ok(size)
+    }
+
+    pub fn type_of(value: Value) -> String {
+        return match value {
+            Value::Null => "Null".to_string(),
+            Value::Bool(_) => "Bool".to_string(),
+            Value::Int32(_) => "Int".to_string(),
+            Value::Int64(_) => "Long".to_string(),
+            Value::Float32(_) => "Float".to_string(),
+            Value::Float64(_) => "Double".to_string(),
+            Value::String(_) => "String".to_string(),
+            Value::Char(_) => "Char".to_string(),
+            Value::Array(_) => "Array".to_string(),
+        };
     }
 
     fn load_hashmap(&mut self) -> Result<(HashMap<String, u64>, u64)> {
@@ -294,5 +339,27 @@ impl DataStore {
         self.uncompacted = 0;
         self.index = new_hashmap;
         Ok(())
+    }
+}
+
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Value::Null => write!(f, "null"),
+            Value::String(v) => write!(f, "{}", v),
+            Value::Bool(v) => write!(f, "{}", v),
+            Value::Int32(v) => write!(f, "{}", v),
+            Value::Int64(v) => write!(f, "{}", v),
+            Value::Float32(v) => write!(f, "{}", v),
+            Value::Float64(v) => write!(f, "{}", v),
+            Value::Char(v) => write!(f, "{}", v),
+            Value::Array(v) => write!(f, "{:?}", v),
+        }
+    }
+}
+
+impl fmt::Display for Entry {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} : {}", self.key, self.value)
     }
 }

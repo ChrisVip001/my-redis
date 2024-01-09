@@ -5,3 +5,7 @@ worker_id = 0
 data_center_id = 0
 data_path = "./data/"
 timeout = 300
+repl = true
+local_user = "root@123654"
+default_db = "default.data"
+auto_refresh = 20
